@@ -108,15 +108,6 @@ cat <<-EOF > /v2raybin/vmess.json
 }
 EOF
 
-if [ "$AppName" = "no" ]; then
-  echo "不生成二维码"
-else
-  mkdir /wwwroot/$V2_QR_Path
-  vmess="vmess://$(cat /v2raybin/vmess.json | base64 -w 0)" 
-  Linkbase64=$(echo -n "${vmess}" | tr -d '\n' | base64 -w 0) 
-  echo "${Linkbase64}" | tr -d '\n' > /wwwroot/$V2_QR_Path/index.html
-  echo -n "${vmess}" | qrencode -s 6 -o /wwwroot/$V2_QR_Path/v2.png
-fi
 
 export PORT=443
 

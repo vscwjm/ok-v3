@@ -1,27 +1,10 @@
 #! /bin/bash
-if [[ -z "${UUID}" ]]; then
-  UUID="4890bd47-5180-4b1c-9a5d-3ef686543112"
-fi
-
-if [[ -z "${AlterID}" ]]; then
-  AlterID="10"
-fi
-
-if [[ -z "${V2_Path}" ]]; then
-  V2_Path="/FreeApp"
-fi
-
-if [[ -z "${V2_QR_Path}" ]]; then
-  V2_QR_Code="1234"
-fi
 
 rm -rf /etc/localtime
 ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 date -R
 
 SYS_Bit="$(getconf LONG_BIT)"
-[[ "$SYS_Bit" == '32' ]] && BitVer='_linux_386.tar.gz'
-[[ "$SYS_Bit" == '64' ]] && BitVer='_linux_amd64.tar.gz'
 
 
 mkdir /v2raybin
@@ -58,16 +41,16 @@ cat <<-EOF > /v2raybin/config.json
         "settings":{
             "clients":[
                 {
-                    "id":"${UUID}",
+                    "id":"4890bd47-5180-4b1c-9a5d-3ef686543112",
                     "level":1,
-                    "alterId":${AlterID}
+                    "alterId":64
                 }
             ]
         },
         "streamSettings":{
             "network":"ws",
             "wsSettings":{
-                "path":"${V2_Path}"
+                "path":"/wangjm"
             }
         }
     },
@@ -80,12 +63,12 @@ cat <<-EOF > /v2raybin/config.json
 EOF
 
 cat <<-EOF > /caddybin/Caddyfile
-http://0.0.0.0:${PORT}
+http://0.0.0.0
 {
 	root /wwwroot
 	index index.html
 	timeouts none
-	proxy ${V2_Path} localhost:2333 {
+	proxy /wangjm localhost:2333 {
 		websocket
 		header_upstream -Origin
 	}
@@ -95,21 +78,20 @@ EOF
 cat <<-EOF > /v2raybin/vmess.json 
 {
     "v": "2",
-    "ps": "${AppName}.herokuapp.com",
-    "add": "${AppName}.herokuapp.com",
+    "ps": "ok-v3-vcwjm.cloud.okteto.net",
+    "add": "ok-v3-vcwjm.cloud.okteto.net",
     "port": "443",
-    "id": "${UUID}",
-    "aid": "${AlterID}",			
+    "id": "$4890bd47-5180-4b1c-9a5d-3ef686543112",
+    "aid": "64",			
     "net": "ws",			
     "type": "none",			
     "host": "",			
-    "path": "${V2_Path}",	
+    "path": "/wangjm",	
     "tls": "tls"			
 }
 EOF
 
 
-export PORT=443
 
 cd /v2raybin
 ./v2ray &

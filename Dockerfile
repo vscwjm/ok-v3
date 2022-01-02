@@ -1,8 +1,10 @@
-FROM alpine:latest
+FROM debian:sid
 
-ADD entrypoint.sh /opt/entrypoint.sh
+RUN apt update -y \
+    	&& apt upgrade -y \
+    	&& apt install -y wget unzip qrencode
 
-RUN apk add --no-cache --virtual .build-deps ca-certificates curl \
- && chmod +x /opt/entrypoint.sh
+ADD entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+CMD /entrypoint.sh
 
-ENTRYPOINT ["sh", "-c", "/opt/entrypoint.sh"]

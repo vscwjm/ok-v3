@@ -1,0 +1,6 @@
+services:
+  ok-v3:
+    build: .
+    shm_size: 2.6gb
+    ports:
+      - "443:443"

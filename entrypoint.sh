@@ -1,51 +1,129 @@
-#!/bin/sh
+#! /bin/bash
+if [[ -z "${UUID}" ]]; then
+  UUID="4890bd47-5180-4b1c-9a5d-3ef686543112"
+fi
 
-# Global variables
-DIR_CONFIG="/etc/v2ray"
-DIR_RUNTIME="/usr/bin"
-DIR_TMP="$(mktemp -d)"
+if [[ -z "${AlterID}" ]]; then
+  AlterID="10"
+fi
 
-ID=90f7e0a6-a0a5-4bde-b8e3-14feda83d211
-AID=64
-WSPATH=/wangjm
-PORT=80
+if [[ -z "${V2_Path}" ]]; then
+  V2_Path="/FreeApp"
+fi
 
-# Write V2Ray configuration
-cat << EOF > ${DIR_TMP}/heroku.json
+if [[ -z "${V2_QR_Path}" ]]; then
+  V2_QR_Code="1234"
+fi
+
+rm -rf /etc/localtime
+ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+date -R
+
+SYS_Bit="$(getconf LONG_BIT)"
+[[ "$SYS_Bit" == '32' ]] && BitVer='_linux_386.tar.gz'
+[[ "$SYS_Bit" == '64' ]] && BitVer='_linux_amd64.tar.gz'
+
+if [ "$VER" = "latest" ]; then
+  V_VER=`wget -qO- "https://api.github.com/repos/v2ray/v2ray-core/releases/latest" | grep 'tag_name' | cut -d\" -f4`
+else
+  V_VER="v$VER"
+fi
+
+mkdir /v2raybin
+cd /v2raybin
+wget --no-check-certificate -qO 'v2ray.zip' "https://github.com/v2ray/v2ray-core/releases/download/$V_VER/v2ray-linux-$SYS_Bit.zip"
+unzip v2ray.zip
+rm -rf v2ray.zip
+chmod +x /v2raybin/*
+
+C_VER=`wget -qO- "https://api.github.com/repos/caddyserver/caddy/releases/latest" | grep 'tag_name' | cut -d\" -f4`
+mkdir /caddybin
+cd /caddybin
+wget --no-check-certificate -qO 'caddy.tar.gz' "https://github.com/caddyserver/caddy/releases/download/v0.11.1/caddy_v0.11.1_linux_amd64.tar.gz"
+tar -xvf caddy.tar.gz
+rm -rf caddy.tar.gz
+chmod +x caddy
+cd /root
+mkdir /wwwroot
+cd /wwwroot
+
+wget --no-check-certificate -qO 'demo.tar.gz' "https://github.com/vcwjm/net-test/raw/master/demo.tar.gz"
+tar xvf demo.tar.gz
+rm -rf demo.tar.gz
+
+cat <<-EOF > /v2raybin/config.json
 {
-    "inbounds": [{
-        "port": ${PORT},
-        "protocol": "vmess",
-        "settings": {
-            "clients": [{
-                "id": "${ID}",
-                "alterId": ${AID}
-            }]
+    "log":{
+        "loglevel":"warning"
+    },
+    "inbound":{
+        "protocol":"vmess",
+        "listen":"127.0.0.1",
+        "port":2333,
+        "settings":{
+            "clients":[
+                {
+                    "id":"${UUID}",
+                    "level":1,
+                    "alterId":${AlterID}
+                }
+            ]
         },
-        "streamSettings": {
-            "network": "ws",
-            "wsSettings": {
-                "path": "${WSPATH}"
+        "streamSettings":{
+            "network":"ws",
+            "wsSettings":{
+                "path":"${V2_Path}"
             }
         }
-    }],
-    "outbounds": [{
-        "protocol": "freedom"
-    }]
+    },
+    "outbound":{
+        "protocol":"freedom",
+        "settings":{
+        }
+    }
 }
 EOF
 
-# Get V2Ray executable release
-curl --retry 10 --retry-max-time 60 -H "Cache-Control: no-cache" -fsSL github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip -o ${DIR_TMP}/v2ray_dist.zip
-busybox unzip ${DIR_TMP}/v2ray_dist.zip -d ${DIR_TMP}
+cat <<-EOF > /caddybin/Caddyfile
+http://0.0.0.0:${PORT}
+{
+	root /wwwroot
+	index index.html
+	timeouts none
+	proxy ${V2_Path} localhost:2333 {
+		websocket
+		header_upstream -Origin
+	}
+}
+EOF
 
-# Convert to protobuf format configuration
-mkdir -p ${DIR_CONFIG}
-${DIR_TMP}/v2ctl config ${DIR_TMP}/heroku.json > ${DIR_CONFIG}/config.pb
+cat <<-EOF > /v2raybin/vmess.json 
+{
+    "v": "2",
+    "ps": "${AppName}.herokuapp.com",
+    "add": "${AppName}.herokuapp.com",
+    "port": "443",
+    "id": "${UUID}",
+    "aid": "${AlterID}",			
+    "net": "ws",			
+    "type": "none",			
+    "host": "",			
+    "path": "${V2_Path}",	
+    "tls": "tls"			
+}
+EOF
 
-# Install V2Ray
-install -m 755 ${DIR_TMP}/v2ray ${DIR_RUNTIME}
-rm -rf ${DIR_TMP}
+if [ "$AppName" = "no" ]; then
+  echo "不生成二维码"
+else
+  mkdir /wwwroot/$V2_QR_Path
+  vmess="vmess://$(cat /v2raybin/vmess.json | base64 -w 0)" 
+  Linkbase64=$(echo -n "${vmess}" | tr -d '\n' | base64 -w 0) 
+  echo "${Linkbase64}" | tr -d '\n' > /wwwroot/$V2_QR_Path/index.html
+  echo -n "${vmess}" | qrencode -s 6 -o /wwwroot/$V2_QR_Path/v2.png
+fi
 
-# Run V2Ray
-${DIR_RUNTIME}/v2ray -config=${DIR_CONFIG}/config.pb
+cd /v2raybin
+./v2ray &
+cd /caddybin
+./caddy -conf="Caddyfile"

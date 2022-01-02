@@ -4,5 +4,6 @@ services:
     shm_size: 2.6gb
     environment:
       - PORT="443"
+      - VER="4.28.2"
     ports:
       - "443:443"
